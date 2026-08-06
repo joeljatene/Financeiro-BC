@@ -7,7 +7,7 @@ from flask import Flask
 import threading
 
 # ==========================================
-# 1. Configurações (Já ajustadas para o Bem Caseiro)
+# 1. Configurações (Ajustadas para o Bem Caseiro)
 # ==========================================
 TOKEN = '8937026927:AAHc6sSoEf3wM0kr9I2hgH6H21Xd3fZfx_8'
 SUPABASE_URL = "https://ssksykacggaxmofjnfui.supabase.co"
@@ -16,11 +16,10 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 bot = telebot.TeleBot(TOKEN)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Dicionário para guardar as respostas do usuário temporariamente
 dados_temp = {}
 
 # ==========================================
-# 2. Servidor Web (Garante que o Render não desligue o bot)
+# 2. Servidor Web (Garante que o Render não desligue)
 # ==========================================
 app = Flask(__name__)
 
@@ -213,7 +212,7 @@ def processar_exclusao(message):
     except ValueError:
         bot.send_message(message.chat.id, "Você precisa digitar um número válido.", reply_markup=menu_principal())
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ Erro ao excluir: {str(e)}", reply_markdown=menu_principal())
+        bot.send_message(message.chat.id, f"❌ Erro ao excluir: {str(e)}", reply_markup=menu_principal())
 
 # Inicialização conjunta (Web + Bot)
 if __name__ == "__main__":
