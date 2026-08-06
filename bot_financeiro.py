@@ -7,9 +7,9 @@ from flask import Flask
 import threading
 
 # ==========================================
-# 1. Configurações (Substitua por suas chaves)
+# 1. Configurações (Já ajustadas para o Bem Caseiro)
 # ==========================================
-TOKEN = '8937026927:AAGlMnT2iQzJjBqWC73b9JoUqfd-xDqbbIU'
+TOKEN = '8937026927:AAHc6sSoEf3wM0kr9I2hgH6H21Xd3fZfx_8'
 SUPABASE_URL = "https://ssksykacggaxmofjnfui.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNza3N5a2FjZ2dheG1vZmpuZnVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwMzM5MjEsImV4cCI6MjEwMTYwOTkyMX0.qhPOSe665qdQRWsP6zlcI5hoR2e5m1SYLCuIJsDByAg"
 
@@ -127,29 +127,23 @@ def listar_pendentes(message):
             for p in pendentes:
                 texto = f"📅 {p['data_vencimento']} | 📝 {p['descricao']}\n💰 R$ {p['valor']:.2f}"
                 
-                # Cria um botão flutuante para cada conta
                 markup_inline = InlineKeyboardMarkup()
                 botao_baixa = InlineKeyboardButton("✔️ Dar Baixa", callback_data=f"baixa_{p['id']}")
                 markup_inline.add(botao_baixa)
                 
                 bot.send_message(message.chat.id, texto, reply_markup=markup_inline)
             
-            # Envia o menu principal de volta para o usuário não ficar preso
-            bot.send_message(message.chat.id, "Selecione uma ação no botão acima ou no menu abaixo:", reply_markup=menu_principal())
+            bot.send_message(message.chat.id, "Selecione uma ação nos botões acima ou no menu:", reply_markup=menu_principal())
         else:
             bot.send_message(message.chat.id, "Tudo em dia! Nenhuma conta pendente. 🎉", reply_markup=menu_principal())
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ Erro: {str(e)}", reply_markup=menu_principal())
 
-# Ação de responder ao clique no botão "Dar Baixa"
 @bot.callback_query_handler(func=lambda call: call.data.startswith('baixa_'))
 def processar_baixa(call):
     id_transacao = int(call.data.split('_')[1])
     try:
-        # Atualiza o status para "Pago" no Supabase
         supabase.table("transacoes").update({"status": "Pago"}).eq("id", id_transacao).execute()
-        
-        # Edita a mensagem original para avisar que foi pago
         bot.edit_message_text(
             chat_id=call.message.chat.id, 
             message_id=call.message.message_id, 
@@ -165,11 +159,9 @@ def processar_baixa(call):
 @bot.message_handler(func=lambda message: message.text == "📊 Fluxo de Caixa")
 def exibir_fluxo_caixa(message):
     try:
-        # Busca todas as receitas pagas
         res_receitas = supabase.table("transacoes").select("valor").eq("tipo", "Receita").eq("status", "Pago").execute()
         total_receitas = sum(item['valor'] for item in res_receitas.data) if res_receitas.data else 0.0
 
-        # Busca todas as despesas pagas
         res_despesas = supabase.table("transacoes").select("valor").eq("tipo", "Despesa").eq("status", "Pago").execute()
         total_despesas = sum(item['valor'] for item in res_despesas.data) if res_despesas.data else 0.0
         
@@ -221,7 +213,7 @@ def processar_exclusao(message):
     except ValueError:
         bot.send_message(message.chat.id, "Você precisa digitar um número válido.", reply_markup=menu_principal())
     except Exception as e:
-        bot.send_message(message.chat.id, f"❌ Erro ao excluir: {str(e)}", reply_markup=menu_principal())
+        bot.send_message(message.chat.id, f"❌ Erro ao excluir: {str(e)}", reply_markdown=menu_principal())
 
 # Inicialização conjunta (Web + Bot)
 if __name__ == "__main__":
