@@ -1,4 +1,5 @@
 import telebot
+from telebot import types
 from supabase import create_client, Client
 from datetime import date
 import os
@@ -12,19 +13,18 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "O Bot Financeiro está rodando 24/7!"
+    return "O Bot Financeiro está rodando 24/7 com botões interativos!"
 
 def iniciar_servidor():
     porta = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=porta)
 
-# Roda o servidor web em segundo plano
 threading.Thread(target=iniciar_servidor).start()
 
 # ==========================================
 # 2. Configurações e Chaves
 # ==========================================
-TOKEN = '8937026927:AAGlMnT2iQzJjBqWC73b9JoUqfd-xDqbbIU'
+TOKEN = '8937026927:AAGlMnT2iQzJjBqWC73b9JoUqfd-xDqbbIU'  # <--- Coloque a chave do BotFather aqui!
 bot = telebot.TeleBot(TOKEN)
 
 SUPABASE_URL = "https://ssksykacggaxmofjnfui.supabase.co"
@@ -32,39 +32,54 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ==========================================
-# 3. Comandos do Bot
+# 3. Criação dos Menus (Botões)
+# ==========================================
+def menu_principal():
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    btn_despesa = types.KeyboardButton('💸 Nova Despesa')
+    btn_pendentes = types.KeyboardButton('📋 Ver Pendentes')
+    markup.add(btn_despesa, btn_pendentes)
+    return markup
+
+def menu_categorias():
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
+    markup.add("Insumos", "Folha de Pagamento", "Impostos", "Manutenção", "Água/Luz/Internet", "Outros", "❌ Cancelar")
+    return markup
+
+# ==========================================
+# 4. Comandos e Fluxos do Bot
 # ==========================================
 @bot.message_handler(commands=['start', 'ajuda'])
 def enviar_ajuda(message):
-    texto = """
-    Bem-vindo ao assistente financeiro! 🍽️
-    
-    1️⃣ Registrar uma despesa para HOJE:
-    /despesa Categoria, Descrição, Valor
-    Ex: /despesa Insumos, Hortifruti, 150.50
-    
-    2️⃣ Ver as contas pendentes:
-    /pendentes
-    
-    3️⃣ Dar baixa em uma conta:
-    /pagar ID
-    Ex: /pagar 15
-    """
-    bot.reply_to(message, texto)
+    bot.send_message(
+        message.chat.id, 
+        "Bem-vindo ao assistente financeiro! 🍽️\nUse os botões abaixo para navegar:",
+        reply_markup=menu_principal()
+    )
 
-@bot.message_handler(commands=['despesa'])
-def registrar_despesa(message):
-    try:
-        texto = message.text.replace('/despesa ', '')
-        partes = [p.strip() for p in texto.split(',')]
+# --- FLUXO: NOVA DESPESA ---
+@bot.message_handler(func=lambda message: message.text == '💸 Nova Despesa')
+def iniciar_despesa(message):
+    msg = bot.reply_to(message, "Escolha a CATEGORIA da despesa:", reply_markup=menu_categorias())
+    bot.register_next_step_handler(msg, pegar_categoria)
+
+def pegar_categoria(message):
+    if message.text == '❌ Cancelar':
+        bot.send_message(message.chat.id, "Lançamento cancelado.", reply_markup=menu_principal())
+        return
         
-        if len(partes) != 3:
-            bot.reply_to(message, "⚠️ Formato incorreto. Use: /despesa Categoria, Descrição, Valor")
-            return
-            
-        categoria = partes[0]
-        descricao = partes[1]
-        valor = float(partes[2].replace(',', '.'))
+    categoria = message.text
+    msg = bot.reply_to(message, f"Categoria: *{categoria}*\n\nAgora, digite a DESCRIÇÃO (ex: Fornecedor de Hortifruti):", parse_mode="Markdown", reply_markup=types.ReplyKeyboardRemove())
+    bot.register_next_step_handler(msg, pegar_descricao, categoria)
+
+def pegar_descricao(message, categoria):
+    descricao = message.text
+    msg = bot.reply_to(message, f"Descrição: *{descricao}*\n\nPor fim, digite o VALOR (ex: 150.50):", parse_mode="Markdown")
+    bot.register_next_step_handler(msg, salvar_despesa, categoria, descricao)
+
+def salvar_despesa(message, categoria, descricao):
+    try:
+        valor = float(message.text.replace(',', '.'))
         data_hoje = date.today().isoformat()
         
         dados = {
@@ -77,50 +92,56 @@ def registrar_despesa(message):
         }
         
         supabase.table("transacoes").insert(dados).execute()
-        bot.reply_to(message, f"✅ Despesa salva na nuvem!\n\nCategoria: {categoria}\nDescrição: {descricao}\nValor: R$ {valor:.2f}")
-    
+        
+        resumo = f"✅ *Despesa Salva!*\n\n📁 {categoria}\n📝 {descricao}\n💰 R$ {valor:.2f}"
+        bot.send_message(message.chat.id, resumo, parse_mode="Markdown", reply_markup=menu_principal())
+        
+    except ValueError:
+        msg = bot.reply_to(message, "⚠️ Valor inválido! Digite apenas números (ex: 150.50).\nTente digitar o valor novamente:")
+        bot.register_next_step_handler(msg, salvar_despesa, categoria, descricao)
     except Exception as e:
-        bot.reply_to(message, "❌ Erro ao registrar. Verifique se digitou o valor corretamente.")
+        bot.send_message(message.chat.id, "❌ Erro ao salvar na nuvem.", reply_markup=menu_principal())
 
-@bot.message_handler(commands=['pendentes'])
+# --- FLUXO: VER PENDENTES E DAR BAIXA ---
+@bot.message_handler(func=lambda message: message.text == '📋 Ver Pendentes')
 def listar_pendentes(message):
     try:
-        resposta = supabase.table("transacoes").select("id, descricao, valor, data_vencimento").eq("tipo", "Despesa").eq("status", "Pendente").order("data_vencimento").execute()
+        resposta = supabase.table("transacoes").select("*").eq("tipo", "Despesa").eq("status", "Pendente").order("data_vencimento").execute()
         contas = resposta.data
         
         if not contas:
-            bot.reply_to(message, "🎉 Nenhuma conta pendente!")
+            bot.send_message(message.chat.id, "🎉 Nenhuma conta pendente!", reply_markup=menu_principal())
             return
             
-        texto_resposta = "🔴 *Contas Pendentes:*\n\n"
+        bot.send_message(message.chat.id, "🔴 *Contas Pendentes:*", parse_mode='Markdown')
+        
         for conta in contas:
-            texto_resposta += f"ID: {conta['id']} | {conta['descricao']}\nValor: R$ {conta['valor']:.2f} | Vence: {conta['data_vencimento']}\n"
-            texto_resposta += "--------------------\n"
+            texto_conta = f"📝 {conta['descricao']}\n📁 {conta['categoria']}\n💰 R$ {conta['valor']:.2f}\n📅 Vence: {conta['data_vencimento']}"
             
-        texto_resposta += "\nPara dar baixa, digite: /pagar ID"
-        bot.reply_to(message, texto_resposta, parse_mode='Markdown')
-        
+            markup_inline = types.InlineKeyboardMarkup()
+            botao_pagar = types.InlineKeyboardButton("✔️ Dar Baixa", callback_data=f"pagar_{conta['id']}")
+            markup_inline.add(botao_pagar)
+            
+            bot.send_message(message.chat.id, texto_conta, reply_markup=markup_inline)
+            
     except Exception as e:
-        bot.reply_to(message, f"❌ Erro ao buscar contas: {str(e)}")
+        bot.send_message(message.chat.id, "❌ Erro ao buscar contas.", reply_markup=menu_principal())
 
-@bot.message_handler(commands=['pagar'])
-def dar_baixa(message):
+# --- AÇÃO DO BOTÃO "DAR BAIXA" ---
+@bot.callback_query_handler(func=lambda call: call.data.startswith('pagar_'))
+def processar_pagamento(call):
+    id_conta = call.data.split('_')[1]
     try:
-        id_conta = message.text.replace('/pagar ', '').strip()
+        supabase.table("transacoes").update({"status": "Pago"}).eq("id", id_conta).execute()
         
-        if not id_conta.isdigit():
-            bot.reply_to(message, "⚠️ Informe apenas o número. Ex: /pagar 15")
-            return
-            
-        resposta = supabase.table("transacoes").update({"status": "Pago"}).eq("id", id_conta).execute()
-        
-        if resposta.data:
-            bot.reply_to(message, f"✔️ Conta ID {id_conta} marcada como Paga na nuvem!")
-        else:
-            bot.reply_to(message, f"⚠️ Nenhuma conta encontrada com o ID {id_conta}.")
-            
+        bot.edit_message_text(
+            chat_id=call.message.chat.id, 
+            message_id=call.message.message_id, 
+            text=f"✔️ {call.message.text}\n\n*(PAGO)*",
+            parse_mode="Markdown"
+        )
     except Exception as e:
-        bot.reply_to(message, "❌ Erro ao processar o pagamento.")
+        bot.answer_callback_query(call.id, "Erro ao dar baixa na conta.")
 
 print("Bot iniciado...")
 bot.infinity_polling()
