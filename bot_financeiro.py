@@ -9,7 +9,7 @@ import threading
 # ==========================================
 # 1. Configurações (Substitua por suas chaves)
 # ==========================================
-TOKEN = '8937026927:AAGlMnT2iQzJjBqWC73b9JoUqfd-xDqbbIU'
+TOKEN = '8937026927:AAHc6sSoEf3wM0kr9I2hgH6H21Xd3fZfx_8'
 SUPABASE_URL = "https://ssksykacggaxmofjnfui.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNza3N5a2FjZ2dheG1vZmpuZnVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwMzM5MjEsImV4cCI6MjEwMTYwOTkyMX0.qhPOSe665qdQRWsP6zlcI5hoR2e5m1SYLCuIJsDByAg"
 
