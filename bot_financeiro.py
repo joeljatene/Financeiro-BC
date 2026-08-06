@@ -10,8 +10,8 @@ import threading
 # 1. Configurações (Substitua por suas chaves)
 # ==========================================
 TOKEN = '8937026927:AAGlMnT2iQzJjBqWC73b9JoUqfd-xDqbbIU'
-SUPABASE_URL = 'SUA_URL_SUPABASE_AQUI'
-SUPABASE_KEY = 'SUA_CHAVE_SUPABASE_AQUI'
+SUPABASE_URL = "https://ssksykacggaxmofjnfui.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNza3N5a2FjZ2dheG1vZmpuZnVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwMzM5MjEsImV4cCI6MjEwMTYwOTkyMX0.qhPOSe665qdQRWsP6zlcI5hoR2e5m1SYLCuIJsDByAg"
 
 bot = telebot.TeleBot(TOKEN)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
